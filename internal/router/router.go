@@ -66,7 +66,7 @@ func RouteDocument(ctx context.Context, craftClient CraftAPI, tsClient Classifie
 	}
 
 	state := buildState(doc.Title, block, opts.MaxContentRune)
-	criteria := ToCriteria(catalog)
+	criteria := ToCriteriaExcluding(catalog, doc.ID)
 
 	result, err := tsClient.Classify(ctx, classifyQuestionKey, classifyInstructions, state, criteria)
 	if err != nil {

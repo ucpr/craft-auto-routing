@@ -14,17 +14,19 @@ import (
 
 func newRouteCmd() *cobra.Command {
 	var (
-		dryRun         bool
-		verbose        bool
-		force          bool
-		location       string
-		minConfidence  float64
-		limit          int
-		sampleSize     int
-		maxFolders     int
-		maxContentRune int
-		blocksMaxDepth int
-		folderHints    []string
+		dryRun              bool
+		verbose             bool
+		force               bool
+		location            string
+		sourceFolder        string
+		excludeSourceFolder bool
+		minConfidence       float64
+		limit               int
+		sampleSize          int
+		maxFolders          int
+		maxContentRune      int
+		blocksMaxDepth      int
+		folderHints         []string
 	)
 
 	cmd := &cobra.Command{
@@ -64,16 +66,38 @@ func newRouteCmd() *cobra.Command {
 			}
 			catalog = router.ApplyHints(catalog, hints)
 
-			fmt.Fprintf(out, "Found %d candidate folder(s).\n", len(catalog))
+			var docs []craft.Document
+			if sourceFolder != "" {
+				folder, ok := router.FindByPathOrID(catalog, sourceFolder)
+				if !ok {
+					return fmt.Errorf("source folder %q not found (use \"folders\" to list valid paths/ids)", sourceFolder)
+				}
+				if excludeSourceFolder {
+					catalog = router.ExcludeByID(catalog, folder.ID)
+				}
 
-			docs, err := craftClient.ListDocuments(ctx, craft.ListDocumentsParams{Location: location})
-			if err != nil {
-				return fmt.Errorf("list %s documents: %w", location, err)
+				fmt.Fprintf(out, "Found %d candidate folder(s).\n", len(catalog))
+
+				docs, err = craftClient.ListDocuments(ctx, craft.ListDocumentsParams{FolderID: folder.ID})
+				if err != nil {
+					return fmt.Errorf("list documents in folder %q: %w", folder.Path, err)
+				}
+				if limit > 0 && len(docs) > limit {
+					docs = docs[:limit]
+				}
+				fmt.Fprintf(out, "Found %d document(s) in folder %q to route.\n", len(docs), folder.Path)
+			} else {
+				fmt.Fprintf(out, "Found %d candidate folder(s).\n", len(catalog))
+
+				docs, err = craftClient.ListDocuments(ctx, craft.ListDocumentsParams{Location: location})
+				if err != nil {
+					return fmt.Errorf("list %s documents: %w", location, err)
+				}
+				if limit > 0 && len(docs) > limit {
+					docs = docs[:limit]
+				}
+				fmt.Fprintf(out, "Found %d document(s) in %q to route.\n", len(docs), location)
 			}
-			if limit > 0 && len(docs) > limit {
-				docs = docs[:limit]
-			}
-			fmt.Fprintf(out, "Found %d document(s) in %q to route.\n", len(docs), location)
 
 			opts := router.Options{
 				DryRun:         dryRun,
@@ -126,6 +150,8 @@ func newRouteCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "print the exact text sent to the classifier and candidate folder descriptions, for debugging")
 	cmd.Flags().BoolVar(&force, "force", false, "always route to the highest-probability folder, ignoring --min-confidence")
 	cmd.Flags().StringVar(&location, "location", "unsorted", "Craft location to pull documents from (unsorted, trash, templates, daily_notes)")
+	cmd.Flags().StringVar(&sourceFolder, "source-folder", "", "reclassify every document already inside this folder (path like \"Projects/Work\" or id, as shown by \"folders\") instead of pulling from --location; the source folder itself stays a candidate destination, so the classifier can choose to leave a document where it is")
+	cmd.Flags().BoolVar(&excludeSourceFolder, "exclude-source-folder", false, "with --source-folder, remove the source folder itself from the candidate list, forcing every document out to a different folder")
 	cmd.Flags().Float64Var(&minConfidence, "min-confidence", 0.6, "minimum classifier confidence required to move a document (ignored with --force)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of documents to process (0 = no limit)")
 	cmd.Flags().IntVar(&sampleSize, "sample-size", 5, "number of example document titles to sample per folder for context")
@@ -137,6 +163,7 @@ func newRouteCmd() *cobra.Command {
 			`the hint is appended to that folder's description sent to the classifier, e.g. `+
 			`--folder-hint "FleetingNotes=Only choose this as a last resort if no other folder fits" `+
 			`or --folder-hint "Engineering/Research=Prefer this folder for anything about tools, libraries, or infrastructure"`)
+	cmd.MarkFlagsMutuallyExclusive("location", "source-folder")
 
 	return cmd
 }
@@ -159,7 +186,7 @@ func printVerbose(out io.Writer, catalog []router.FolderOption, decision router.
 	fmt.Fprintln(out, indent(decision.State, "       "))
 	fmt.Fprintln(out, "       --- candidate folder descriptions ---")
 	for _, c := range router.TopCandidates(catalog, decision.Probabilities, 3) {
-		fmt.Fprintf(out, "       [%5.1f%%] %s\n", c.Probability*100, c.Folder.Description())
+		fmt.Fprintf(out, "       [%5.1f%%] %s\n", c.Probability*100, c.Folder.DescriptionExcluding(decision.Document.ID))
 	}
 	fmt.Fprintln(out)
 }

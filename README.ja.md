@@ -46,11 +46,17 @@ craft-auto-routing route --dry-run
 
 # 実際に移動する (confidence 0.7 未満はスキップ)
 craft-auto-routing route --min-confidence 0.7
+
+# 特定フォルダに溜まったドキュメントを丸ごと読み直して再振り分けする
+craft-auto-routing route --source-folder "Projects/Inbox" --dry-run
 ```
 
 主なフラグ (`route`):
 
 - `--dry-run`: 分類結果を表示するだけで、実際には移動しない。
+- `--location` (default `unsorted`): ドキュメントの取得元とする Craft の location (`unsorted`, `trash`, `templates`, `daily_notes`)。`--source-folder` とは併用不可。
+- `--source-folder`: `--location` の代わりに、既存の特定フォルダ (`Projects/Work` のようなパス、または `folders` コマンドで表示される id) に入っているドキュメントをすべて取得し、再分類する。デフォルトではそのフォルダ自身も振り分け候補に残るため、本当にそこが適切なドキュメントはそのまま留まる。
+- `--exclude-source-folder`: `--source-folder` と併用し、元のフォルダ自身を振り分け候補から除外する。指定すると、すべてのドキュメントが別のフォルダへ強制的に振り分けられる。
 - `--min-confidence` (default `0.6`): この confidence 未満の判定は移動せずスキップする。
 - `--limit`: 処理するドキュメント数の上限。
 - `--sample-size` (default `5`): フォルダの説明文に使う既存ドキュメントのサンプル数。

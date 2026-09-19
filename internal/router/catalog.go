@@ -15,6 +15,10 @@ type FolderOption struct {
 	Path          string
 	DocumentCount int
 	SampleTitles  []string
+	// SampleDocumentIDs holds the document id behind each entry in
+	// SampleTitles, index-aligned, so a document being classified can be
+	// excluded from its own folder's description. See DescriptionExcluding.
+	SampleDocumentIDs []string
 	// Hint is user-supplied text appended to Description() to steer the
 	// classifier's own judgment for this folder (e.g. "only choose this as
 	// a last resort" or "prefer this for anything infra-related"). See
@@ -26,11 +30,32 @@ type FolderOption struct {
 // choice criteria value, so the model can judge fit from folder structure
 // and example documents already filed there.
 func (f FolderOption) Description() string {
+	return f.DescriptionExcluding("")
+}
+
+// DescriptionExcluding renders the same description as Description, but
+// omits any sample document matching excludeDocID. This matters when a
+// folder is left in the candidate list while re-routing its own contents
+// (see --source-folder): without it, the document being classified would
+// appear as one of its own folder's "example existing documents", making it
+// trivially match itself regardless of actual fit.
+func (f FolderOption) DescriptionExcluding(excludeDocID string) string {
+	titles := f.SampleTitles
+	if excludeDocID != "" {
+		titles = make([]string, 0, len(f.SampleTitles))
+		for i, t := range f.SampleTitles {
+			if i < len(f.SampleDocumentIDs) && f.SampleDocumentIDs[i] == excludeDocID {
+				continue
+			}
+			titles = append(titles, t)
+		}
+	}
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "Folder path: %s. Contains %d document(s).", f.Path, f.DocumentCount)
-	if len(f.SampleTitles) > 0 {
+	if len(titles) > 0 {
 		sb.WriteString(" Example existing documents: ")
-		sb.WriteString(strings.Join(f.SampleTitles, "; "))
+		sb.WriteString(strings.Join(titles, "; "))
 		sb.WriteString(".")
 	}
 	if f.Hint != "" {
@@ -138,6 +163,7 @@ func BuildCatalog(ctx context.Context, client DocumentTitleFetcher, folders []Fo
 				}
 				if d.Title != "" {
 					f.SampleTitles = append(f.SampleTitles, d.Title)
+					f.SampleDocumentIDs = append(f.SampleDocumentIDs, d.ID)
 				}
 			}
 		}
@@ -164,9 +190,18 @@ func LimitByDocumentCount(folders []FolderOption, max int) []FolderOption {
 // ToCriteria renders the catalog as a TypeSafe choice criteria map keyed by
 // folder id.
 func ToCriteria(folders []FolderOption) map[string]string {
+	return ToCriteriaExcluding(folders, "")
+}
+
+// ToCriteriaExcluding renders the catalog like ToCriteria, but excludes
+// excludeDocID from every folder's sample documents. Pass the id of the
+// document currently being classified to avoid it leaking into its own
+// folder's description as a self-matching "example". See
+// FolderOption.DescriptionExcluding.
+func ToCriteriaExcluding(folders []FolderOption, excludeDocID string) map[string]string {
 	criteria := make(map[string]string, len(folders))
 	for _, f := range folders {
-		criteria[f.ID] = f.Description()
+		criteria[f.ID] = f.DescriptionExcluding(excludeDocID)
 	}
 	return criteria
 }
@@ -179,6 +214,33 @@ func FindByID(folders []FolderOption, id string) (FolderOption, bool) {
 		}
 	}
 	return FolderOption{}, false
+}
+
+// FindByPathOrID returns the folder option matching key against either the
+// folder's id or its full breadcrumb path (e.g. "Projects/Work"), as shown
+// by the `folders` command. Used to resolve user-supplied folder references
+// such as --source-folder and --folder-hint keys.
+func FindByPathOrID(folders []FolderOption, key string) (FolderOption, bool) {
+	for _, f := range folders {
+		if f.ID == key || f.Path == key {
+			return f, true
+		}
+	}
+	return FolderOption{}, false
+}
+
+// ExcludeByID returns a copy of folders with the entry matching id removed,
+// so a source folder being re-routed out of isn't also offered back to the
+// classifier as a destination.
+func ExcludeByID(folders []FolderOption, id string) []FolderOption {
+	out := make([]FolderOption, 0, len(folders))
+	for _, f := range folders {
+		if f.ID == id {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 // Candidate pairs a folder option with the classifier's probability for it,

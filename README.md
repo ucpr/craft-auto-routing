@@ -51,11 +51,17 @@ craft-auto-routing route --dry-run
 
 # Actually move documents (skip anything below confidence 0.7)
 craft-auto-routing route --min-confidence 0.7
+
+# Re-classify everything already sitting in one folder, spreading it back out
+craft-auto-routing route --source-folder "Projects/Inbox" --dry-run
 ```
 
 Main flags (`route`):
 
 - `--dry-run`: Only display the classification results without actually moving anything.
+- `--location` (default `unsorted`): Craft location to pull documents from (`unsorted`, `trash`, `templates`, `daily_notes`). Mutually exclusive with `--source-folder`.
+- `--source-folder`: Instead of `--location`, sweep every document already inside a specific real folder (accepts a folder path like `Projects/Work` or its id, as shown by `folders`) and re-classify each one. The source folder itself stays a candidate destination by default, so a document that genuinely still belongs there can be left in place.
+- `--exclude-source-folder`: With `--source-folder`, remove the source folder from the candidate list, forcing every document out to a different folder.
 - `--min-confidence` (default `0.6`): Skip moving documents whose confidence is below this value.
 - `--limit`: Maximum number of documents to process.
 - `--sample-size` (default `5`): Number of existing documents sampled to build each folder's description.

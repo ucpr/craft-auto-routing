@@ -71,3 +71,7 @@ craft-auto-routing route --source-folder "Projects/Inbox" --dry-run
   `--max-folders` で上位フォルダに絞ることを推奨する。
 - 移動は `RouteDocument` 単位 (1ドキュメントずつ) で行うため、途中でエラーが起きても
   他のドキュメントの処理は継続し、最後にまとめて `moved/skipped/failed` を報告する。
+
+## LICENSE
+
+MIT LICENSE

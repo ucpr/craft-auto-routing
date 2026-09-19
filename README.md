@@ -78,3 +78,7 @@ Main flags (`route`):
 - Moves are performed per `RouteDocument` (one document at a time), so if an
   error occurs partway through, processing continues for the remaining
   documents, and a summary of `moved/skipped/failed` is reported at the end.
+
+## LICENSE
+
+MIT LICENSE

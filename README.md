@@ -1,21 +1,26 @@
 # craft-auto-routing
 
-Craft docs の未分類ドキュメント (Unsorted) を、既存のフォルダ構成を読み取った上で
-[TypeSafe](https://docs.typesafe.ai) の `jev` モデルに判定させ、最も適したフォルダへ
-自動で振り分ける CLI ツール。
+A CLI tool that reads the existing folder structure in Craft docs, has
+[TypeSafe](https://docs.typesafe.ai)'s `jev` model classify unsorted
+documents (Unsorted), and automatically routes each one to the most
+appropriate folder.
 
 ## How it works
 
-1. Craft Connect API (`GET /folders`) から既存のフォルダツリーを取得し、フォルダパス
-   (`Projects/Work` のようなブレッドクラム) にフラット化する。
-2. 各フォルダに実際に入っているドキュメントのタイトルをいくつかサンプリングし
-   (`GET /documents?folderId=...`)、「このフォルダには何が入っているか」を表す説明文を
-   フォルダごとに組み立てる。これが既存の構成を読み取る部分。
-3. `location=unsorted` のドキュメント一覧を取得し、各ドキュメントの本文
-   (`GET /blocks`) とタイトルを TypeSafe SystemOne API の `choice` 質問の `state` として渡す。
-   選択肢 (`criteria`) は手順2で作ったフォルダごとの説明文。
-4. `jev-latest` が返した `choice` (フォルダID) と `confidence` を見て、閾値以上なら
-   `PUT /documents/move` でそのフォルダに移動する。閾値未満は移動せずスキップして報告する。
+1. Fetch the existing folder tree from the Craft Connect API (`GET /folders`)
+   and flatten it into folder paths (breadcrumbs like `Projects/Work`).
+2. Sample the titles of documents actually contained in each folder
+   (`GET /documents?folderId=...`) and build a description per folder that
+   represents "what this folder contains." This is the part that reads the
+   existing structure.
+3. Fetch the list of documents with `location=unsorted`, and pass each
+   document's body (`GET /blocks`) and title as the `state` of a `choice`
+   question to the TypeSafe SystemOne API. The choices (`criteria`) are the
+   per-folder descriptions built in step 2.
+4. Look at the `choice` (folder ID) and `confidence` returned by
+   `jev-latest`, and if it meets or exceeds the threshold, move the document
+   to that folder via `PUT /documents/move`. If it's below the threshold,
+   skip the move and report it instead.
 
 ## Setup
 
@@ -23,45 +28,47 @@ Craft docs の未分類ドキュメント (Unsorted) を、既存のフォルダ
 go build ./cmd/craft-auto-routing
 ```
 
-環境変数:
+Environment variables:
 
-| 変数 | 必須 | 説明 |
+| Variable | Required | Description |
 | --- | --- | --- |
-| `CRAFT_API_TOKEN` | ✅ | Craft Connect API の Bearer トークン |
-| `TYPESAFE_API_KEY` | ✅ | TypeSafe の API キー |
-| `CRAFT_BASE_URL` | - | デフォルトは `https://connect.craft.do/links/YOUR_CRAFT_CONNECT_LINK_ID/api/v1` |
-| `TYPESAFE_MODEL` | - | デフォルトは `jev-latest` |
+| `CRAFT_API_TOKEN` | ✅ | Bearer token for the Craft Connect API |
+| `TYPESAFE_API_KEY` | ✅ | TypeSafe API key |
+| `CRAFT_BASE_URL` | - | Defaults to `https://connect.craft.do/links/YOUR_CRAFT_CONNECT_LINK_ID/api/v1` |
+| `TYPESAFE_MODEL` | - | Defaults to `jev-latest` |
 
-トークンは `.env` などに置かず、シェルのシークレット管理 (`direnv`, keychain 等) から
-注入すること。
+Don't put tokens in `.env` or similar files; inject them from your shell's
+secret management (`direnv`, keychain, etc.).
 
 ## Usage
 
 ```sh
-# 既存フォルダ構成とサンプルドキュメントを確認する
+# Inspect the existing folder structure and sample documents
 craft-auto-routing folders
 
-# まずは dry-run で振り分け計画だけ確認する
+# Do a dry-run first to preview the routing plan
 craft-auto-routing route --dry-run
 
-# 実際に移動する (confidence 0.7 未満はスキップ)
+# Actually move documents (skip anything below confidence 0.7)
 craft-auto-routing route --min-confidence 0.7
 ```
 
-主なフラグ (`route`):
+Main flags (`route`):
 
-- `--dry-run`: 分類結果を表示するだけで、実際には移動しない。
-- `--min-confidence` (default `0.6`): この confidence 未満の判定は移動せずスキップする。
-- `--limit`: 処理するドキュメント数の上限。
-- `--sample-size` (default `5`): フォルダの説明文に使う既存ドキュメントのサンプル数。
-- `--max-folders`: フォルダ数が多い場合に、ドキュメント数の多い上位N件に候補を絞る。
-- `--max-content-chars` (default `4000`): 分類器に渡すドキュメント本文の最大文字数。
+- `--dry-run`: Only display the classification results without actually moving anything.
+- `--min-confidence` (default `0.6`): Skip moving documents whose confidence is below this value.
+- `--limit`: Maximum number of documents to process.
+- `--sample-size` (default `5`): Number of existing documents sampled to build each folder's description.
+- `--max-folders`: When there are many folders, narrow the candidates to the top N by document count.
+- `--max-content-chars` (default `4000`): Maximum number of characters of document body passed to the classifier.
 
 ## Notes
 
-- Craft の folders/documents API にはページネーションの記載がなく、一度のレスポンスで
-  返る `items` をそのまま扱う。
-- フォルダ数が多いスペースでは選択肢が多くなり TypeSafe のトークン消費が増えるため、
-  `--max-folders` で上位フォルダに絞ることを推奨する。
-- 移動は `RouteDocument` 単位 (1ドキュメントずつ) で行うため、途中でエラーが起きても
-  他のドキュメントの処理は継続し、最後にまとめて `moved/skipped/failed` を報告する。
+- The Craft folders/documents API doesn't document pagination, so the
+  `items` returned in a single response are used as-is.
+- In spaces with many folders, the number of choices increases, which
+  increases TypeSafe token consumption; using `--max-folders` to narrow
+  down to top folders is recommended.
+- Moves are performed per `RouteDocument` (one document at a time), so if an
+  error occurs partway through, processing continues for the remaining
+  documents, and a summary of `moved/skipped/failed` is reported at the end.

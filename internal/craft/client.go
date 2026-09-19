@@ -1,5 +1,6 @@
-// Package craft provides a minimal client for the Craft docs Connect API
-// (https://connect.craft.do/link/YOUR_CRAFT_CONNECT_LINK_ID/docs/v1).
+// Package craft provides a minimal client for the Craft docs Connect API.
+// The base URL (including the space-specific Connect link id) is supplied
+// by the caller via CRAFT_BASE_URL; see internal/config.
 package craft
 
 import (

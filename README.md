@@ -33,8 +33,8 @@ Environment variables:
 | Variable | Required | Description |
 | --- | --- | --- |
 | `CRAFT_API_TOKEN` | ✅ | Bearer token for the Craft Connect API |
+| `CRAFT_BASE_URL` | ✅ | Your Craft Connect API base URL, e.g. `https://connect.craft.do/links/<your-link-id>/api/v1` (find this in Craft's Connect API settings for your space) |
 | `TYPESAFE_API_KEY` | ✅ | TypeSafe API key |
-| `CRAFT_BASE_URL` | - | Defaults to `https://connect.craft.do/links/YOUR_CRAFT_CONNECT_LINK_ID/api/v1` |
 | `TYPESAFE_MODEL` | - | Defaults to `jev-latest` |
 
 Don't put tokens in `.env` or similar files; inject them from your shell's

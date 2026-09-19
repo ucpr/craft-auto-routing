@@ -28,8 +28,8 @@ go build ./cmd/craft-auto-routing
 | 変数 | 必須 | 説明 |
 | --- | --- | --- |
 | `CRAFT_API_TOKEN` | ✅ | Craft Connect API の Bearer トークン |
+| `CRAFT_BASE_URL` | ✅ | 自分の Craft Connect API のベース URL (例: `https://connect.craft.do/links/<your-link-id>/api/v1`)。Craft の Connect API 設定画面から確認できる |
 | `TYPESAFE_API_KEY` | ✅ | TypeSafe の API キー |
-| `CRAFT_BASE_URL` | - | デフォルトは `https://connect.craft.do/links/YOUR_CRAFT_CONNECT_LINK_ID/api/v1` |
 | `TYPESAFE_MODEL` | - | デフォルトは `jev-latest` |
 
 トークンは `.env` などに置かず、シェルのシークレット管理 (`direnv`, keychain 等) から

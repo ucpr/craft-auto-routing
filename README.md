@@ -79,6 +79,13 @@ Main flags (`route`):
   error occurs partway through, processing continues for the remaining
   documents, and a summary of `moved/skipped/failed` is reported at the end.
 
+## Releases
+
+Pushing a `v*` tag runs [`.github/workflows/release.yml`](.github/workflows/release.yml), which:
+
+- builds cross-platform binaries with [GoReleaser](https://goreleaser.com/) and attaches them to a GitHub Release, and
+- builds and pushes a container image to `ghcr.io/ucpr/craft-auto-routing` with [`ko`](https://ko.build/), tagged with the tag name and `latest`.
+
 ## LICENSE
 
 MIT LICENSE

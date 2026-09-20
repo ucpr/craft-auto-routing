@@ -1,0 +1,12 @@
+defaultBaseImage: cgr.dev/chainguard/static:latest
+
+builds:
+  - id: craft-auto-routing
+    dir: .
+    main: ./cmd/craft-auto-routing
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w

@@ -72,6 +72,13 @@ craft-auto-routing route --source-folder "Projects/Inbox" --dry-run
 - 移動は `RouteDocument` 単位 (1ドキュメントずつ) で行うため、途中でエラーが起きても
   他のドキュメントの処理は継続し、最後にまとめて `moved/skipped/failed` を報告する。
 
+## Releases
+
+`v*` タグを push すると [`.github/workflows/release.yml`](.github/workflows/release.yml) が実行され、
+
+- [GoReleaser](https://goreleaser.com/) でクロスプラットフォームバイナリをビルドし GitHub Release に添付する
+- [`ko`](https://ko.build/) でコンテナイメージをビルドし `ghcr.io/ucpr/craft-auto-routing` に push する (タグ名と `latest` を付与)
+
 ## LICENSE
 
 MIT LICENSE
